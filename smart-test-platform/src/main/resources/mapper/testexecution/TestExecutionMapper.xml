@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.smarttestplatform.module.testexecution.mapper.TestExecutionMapper">
+
+    <resultMap id="BaseResultMap" type="com.example.smarttestplatform.module.testexecution.entity.TestExecution">
+        <id property="id" column="id"/>
+        <result property="planId" column="plan_id"/>
+        <result property="caseId" column="case_id"/>
+        <result property="executorId" column="executor_id"/>
+        <result property="executeTime" column="execute_time"/>
+        <result property="result" column="result"/>
+        <result property="actualResult" column="actual_result"/>
+        <result property="durationMs" column="duration_ms"/>
+        <result property="isAutomated" column="is_automated"/>
+        <result property="createTime" column="create_time"/>
+    </resultMap>
+
+    <select id="pageQuery" resultMap="BaseResultMap">
+        SELECT * FROM test_execution
+        <where>
+            <if test="conditions.planId != null">
+                AND plan_id = #{conditions.planId}
+            </if>
+            <if test="conditions.caseId != null">
+                AND case_id = #{conditions.caseId}
+            </if>
+            <if test="conditions.executorId != null">
+                AND executor_id = #{conditions.executorId}
+            </if>
+            <if test="conditions.result != null and conditions.result != ''">
+                AND result = #{conditions.result}
+            </if>
+        </where>
+        ORDER BY execute_time DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <select id="count" resultType="long">
+        SELECT COUNT(*) FROM test_execution
+        <where>
+            <if test="conditions.planId != null">
+                AND plan_id = #{conditions.planId}
+            </if>
+            <if test="conditions.caseId != null">
+                AND case_id = #{conditions.caseId}
+            </if>
+            <if test="conditions.executorId != null">
+                AND executor_id = #{conditions.executorId}
+            </if>
+            <if test="conditions.result != null and conditions.result != ''">
+                AND result = #{conditions.result}
+            </if>
+        </where>
+    </select>
+
+    <select id="countByPlanIds" resultType="java.util.Map">
+        SELECT
+        COUNT(DISTINCT CASE WHEN result = '通过' THEN case_id END) as passed,
+        COUNT(DISTINCT case_id) as total
+        FROM test_execution
+        WHERE plan_id IN
+        <foreach collection="planIds" item="pid" open="(" separator="," close=")">
+            #{pid}
+        </foreach>
+    </select>
+
+    <select id="findRecentByProjectIds" resultMap="BaseResultMap">
+        SELECT te.* FROM test_execution te
+        INNER JOIN test_plan tp ON te.plan_id = tp.id
+        WHERE tp.project_id IN
+        <foreach collection="projectIds" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        ORDER BY te.execute_time DESC LIMIT #{limit}
+    </select>
+
+    <select id="countByDateRange" resultType="map">
+        SELECT DATE(te.execute_time) as date, te.result, COUNT(*) as count
+        FROM test_execution te
+        INNER JOIN test_plan tp ON te.plan_id = tp.id
+        WHERE tp.project_id IN
+        <foreach collection="projectIds" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        AND te.execute_time >= DATE_SUB(NOW(), INTERVAL #{days} DAY)
+        GROUP BY DATE(te.execute_time), te.result ORDER BY date
+    </select>
+</mapper>

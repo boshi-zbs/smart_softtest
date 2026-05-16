@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.smarttestplatform.module.user.mapper.UserMapper">
+
+    <!-- 分页查询用户 -->
+    <select id="pageQuery" resultType="com.example.smarttestplatform.module.user.entity.User">
+        SELECT u.* FROM user u
+        <if test="conditions.roleId != null and conditions.roleId != ''">
+            INNER JOIN user_role ur ON u.id = ur.user_id
+        </if>
+        <where>
+            <if test="conditions.username != null and conditions.username != ''">
+                AND u.username LIKE CONCAT('%', #{conditions.username}, '%')
+            </if>
+            <if test="conditions.realName != null and conditions.realName != ''">
+                AND u.real_name LIKE CONCAT('%', #{conditions.realName}, '%')
+            </if>
+            <if test="conditions.email != null and conditions.email != ''">
+                AND u.email LIKE CONCAT('%', #{conditions.email}, '%')
+            </if>
+            <if test="conditions.phone != null and conditions.phone != ''">
+                AND u.phone LIKE CONCAT('%', #{conditions.phone}, '%')
+            </if>
+            <if test="conditions.status != null">
+                AND u.status = #{conditions.status}
+            </if>
+            <if test="conditions.roleId != null and conditions.roleId != ''">
+                AND ur.role_id = #{conditions.roleId}
+            </if>
+        </where>
+        ORDER BY u.id ASC
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <!-- 统计总记录数 -->
+    <select id="count" resultType="long">
+        SELECT COUNT(DISTINCT u.id) FROM user u
+        <if test="conditions.roleId != null and conditions.roleId != ''">
+            INNER JOIN user_role ur ON u.id = ur.user_id
+        </if>
+        <where>
+            <if test="conditions.username != null and conditions.username != ''">
+                AND u.username LIKE CONCAT('%', #{conditions.username}, '%')
+            </if>
+            <if test="conditions.realName != null and conditions.realName != ''">
+                AND u.real_name LIKE CONCAT('%', #{conditions.realName}, '%')
+            </if>
+            <if test="conditions.email != null and conditions.email != ''">
+                AND u.email LIKE CONCAT('%', #{conditions.email}, '%')
+            </if>
+            <if test="conditions.phone != null and conditions.phone != ''">
+                AND u.phone LIKE CONCAT('%', #{conditions.phone}, '%')
+            </if>
+            <if test="conditions.status != null">
+                AND u.status = #{conditions.status}
+            </if>
+            <if test="conditions.roleId != null and conditions.roleId != ''">
+                AND ur.role_id = #{conditions.roleId}
+            </if>
+        </where>
+    </select>
+
+    <delete id="deleteBatch">
+        DELETE FROM user WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+</mapper>

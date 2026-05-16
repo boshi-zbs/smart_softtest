@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ES6",
+    "module": "esnext",
+    "moduleResolution": "bundler",       // 原为 "node10" 或 "node"，改为 "bundler"
+    "baseUrl": ".",                     
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"],
+  // 添加以下选项使弃用警告静音（TypeScript 6.0+）
+  "ignoreDeprecations": "6.0"
+}
