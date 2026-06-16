@@ -70,22 +70,22 @@ public class ProjectMemberController {
         return Result.success("添加成功");
     }
     @Log(module = "成员管理", operation = "更新成员", description = "更新成员")
-    @PutMapping("/{id}")
-    public Result<String> updateMember(@PathVariable Integer id, @RequestBody ProjectMember projectMember) {
-        projectMember.setId(id);
+    @PutMapping
+    public Result<String> updateMember(@RequestBody ProjectMember projectMember) {
+        // 前端传入的 projectMember 必须包含 projectId 和 userId 以及 roleInProject
         projectMemberService.updateMember(projectMember);
         return Result.success("更新成功");
     }
     @Log(module = "成员管理", operation = "删除成员", description = "删除成员")
-    @DeleteMapping("/{id}")
-    public Result<String> removeMember(@PathVariable Integer id) {
-        projectMemberService.removeMember(id);
+    @DeleteMapping("/{projectId}/{userId}")
+    public Result<String> removeMember(@PathVariable Integer projectId, @PathVariable Integer userId) {
+        projectMemberService.removeMember(projectId, userId);
         return Result.success("移除成功");
     }
     @Log(module = "成员管理", operation = "批量移除", description = "批量移除项目成员")
     @DeleteMapping("/batch")
-    public Result<String> removeBatch(@RequestBody List<Integer> ids) {
-        projectMemberService.removeBatch(ids);
+    public Result<String> removeBatch(@RequestBody List<ProjectMember> members) {
+        projectMemberService.removeBatch(members);
         return Result.success("批量移除成功");
     }
 

@@ -47,5 +47,8 @@
             </if>
         </where>
     </select>
-
+    <update id="completeByRelated">
+        UPDATE message SET status = 'completed'
+        WHERE related_id = #{relatedId} AND related_type = #{relatedType} AND type = '待办' AND status = 'pending'
+    </update>
 </mapper>

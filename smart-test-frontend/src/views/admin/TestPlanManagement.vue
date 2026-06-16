@@ -50,6 +50,7 @@
         <el-table-column type="index" label="序号" width="60" />
         <el-table-column prop="planName" label="计划名称" />
         <el-table-column prop="projectName" label="所属项目" />
+        <el-table-column prop="assigneeName" label="负责人" width="120" />
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
             <el-tag :type="statusType(row.status)">
@@ -123,6 +124,17 @@
             style="width:100%"
           />
         </el-form-item>
+        <!-- 负责人下拉框（只显示测试人员） -->
+        <el-form-item label="负责人" prop="assigneeId">
+          <el-select v-model="form.assigneeId" placeholder="请选择测试人员" clearable style="width:100%">
+            <el-option
+              v-for="item in testerOptions"
+              :key="item.id"
+              :label="item.username + (item.realName ? ' (' + item.realName + ')' : '')"
+              :value="item.id"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item label="状态" prop="status" required>
           <el-select v-model="form.status" placeholder="请选择状态" style="width:100%">
             <el-option label="未开始" value="未开始" />
@@ -140,7 +152,7 @@
       </template>
     </el-dialog>
 
-    <!-- 关联用例对话框 -->
+    <!-- 关联用例对话框（不变） -->
     <el-dialog title="关联用例" v-model="caseDialogVisible" width="700px" @close="handleCaseDialogClose">
       <div style="margin-bottom: 16px;">
         <span>当前计划：{{ currentPlanName }}</span>
@@ -156,7 +168,7 @@
           </template>
         </el-table-column>
       </el-table>
-      <!-- 添加用例的选择框（在添加时弹出） -->
+      <!-- 添加用例的选择框 -->
       <el-dialog title="选择用例" v-model="selectCaseDialogVisible" width="500px" append-to-body>
         <el-select v-model="selectedCaseId" placeholder="请选择用例" style="width:100%">
           <el-option
@@ -184,14 +196,15 @@ import CommonTable from '@/components/CommonTable.vue'
 import { getTestPlanList, createTestPlan, updateTestPlan, deleteTestPlan, deleteTestPlansBatch,
          addCaseToPlan, removeCaseFromPlan, getPlanCases } from '@/api/testplan'
 import { getProjectList } from '@/api/project'
-import { getTestCaseList } from '@/api/testcase' // 假设已有
+import { getTestCaseList } from '@/api/testcase'
+import { getUserList } from '@/api/user'
+import { getPublicRoles } from '@/api/role'
 
 const tableRef = ref()
 const selectedRows = ref([])
-
-// 在已有变量后添加
-const currentPlan = ref({})          // 存储当前计划详情
-
+const currentPlan = ref({})
+const testerOptions = ref([])
+const testerRoleId = ref(null)   // 测试人员角色ID
 
 // 查询条件
 const searchForm = ref({
@@ -202,6 +215,7 @@ const searchForm = ref({
 
 // 项目选项
 const projectOptions = ref([])
+
 // 加载项目列表
 const fetchProjects = async () => {
   try {
@@ -212,9 +226,27 @@ const fetchProjects = async () => {
   }
 }
 
-onMounted(() => {
-  fetchProjects()
-})
+// 获取测试人员角色ID
+const fetchTesterRoleId = async () => {
+  try {
+    const res = await getPublicRoles()
+    const testerRole = res.data.find(r => r.roleCode === 'ROLE_TESTER')
+    if (testerRole) testerRoleId.value = testerRole.id
+  } catch (error) {
+    console.error('获取角色列表失败', error)
+  }
+}
+
+// 加载测试人员列表
+const fetchTesters = async () => {
+  if (!testerRoleId.value) return
+  try {
+    const res = await getUserList({ page: 1, size: 1000, roleId: testerRoleId.value })
+    testerOptions.value = res.data.records
+  } catch (error) {
+    console.error('获取测试人员失败', error)
+  }
+}
 
 // 状态标签样式
 const statusType = (status) => {
@@ -258,7 +290,8 @@ const form = ref({
   description: '',
   startDate: null,
   endDate: null,
-  status: '未开始'
+  status: '未开始',
+  assigneeId: null
 })
 
 const rules = {
@@ -279,16 +312,14 @@ const handleAdd = () => {
     description: '',
     startDate: null,
     endDate: null,
-    status: '未开始'
+    status: '未开始',
+    assigneeId: null
   }
   dialogVisible.value = true
   nextTick(() => formRef.value?.clearValidate())
 }
 
 const handleEdit = (row) => {
-   console.log('编辑行原始数据:', row);
-  console.log('startDate:', row.startDate);
-  console.log('endDate:', row.endDate);
   dialogTitle.value = '编辑计划'
   form.value = {
     id: row.id,
@@ -297,7 +328,8 @@ const handleEdit = (row) => {
     description: row.description,
     startDate: row.startDate,
     endDate: row.endDate,
-    status: row.status
+    status: row.status,
+    assigneeId: row.assigneeId || null
   }
   dialogVisible.value = true
   nextTick(() => formRef.value?.clearValidate())
@@ -374,17 +406,16 @@ const currentPlanName = ref('')
 const planCaseList = ref([])
 
 const handleManageCases = (row) => {
-  currentPlan.value = row              // 保存整个计划对象（包含 projectId）
+  currentPlan.value = row
   currentPlanId.value = row.id
   currentPlanName.value = row.planName
   loadPlanCases(row.id)
   caseDialogVisible.value = true
 }
 
-// 加载计划已关联的用例
 const loadPlanCases = async (planId) => {
   try {
-    const res = await getPlanCases(planId)  // 返回 { code:200, data: [ { id, title, priority, ... } ] }
+    const res = await getPlanCases(planId)
     planCaseList.value = res.data.map(c => ({
       ...c,
       priorityText: {1:'最高',2:'高',3:'中',4:'低'}[c.priority] || '中'
@@ -396,7 +427,7 @@ const loadPlanCases = async (planId) => {
 
 // 添加用例
 const selectCaseDialogVisible = ref(false)
-const availableCases = ref([]) // 可用的用例列表（同一项目下的）
+const availableCases = ref([])
 const selectedCaseId = ref(null)
 
 const handleAddCase = async () => {
@@ -405,21 +436,19 @@ const handleAddCase = async () => {
     return
   }
   try {
-    // 获取当前项目下的所有用例（假设已有 getTestCaseList 接口）
-    const res = await getTestCaseList({ 
-      projectId: currentPlan.value.projectId, 
-      page: 1, 
-      size: 1000 
+    const res = await getTestCaseList({
+      projectId: currentPlan.value.projectId,
+      page: 1,
+      size: 1000
     })
-    // 已关联用例的ID列表
     const associatedIds = planCaseList.value.map(c => c.id)
-    // 过滤出未关联的用例
     availableCases.value = res.data.records.filter(c => !associatedIds.includes(c.id))
     selectCaseDialogVisible.value = true
   } catch (error) {
     console.error('获取用例列表失败', error)
   }
 }
+
 const confirmAddCase = async () => {
   if (!selectedCaseId.value) {
     ElMessage.warning('请选择用例')
@@ -430,10 +459,8 @@ const confirmAddCase = async () => {
     ElMessage.success('添加成功')
     selectCaseDialogVisible.value = false
     selectedCaseId.value = null
-    // 重新加载关联用例列表
     loadPlanCases(currentPlanId.value)
   } catch (error) {
-    // 错误已在拦截器中显示，无需额外处理
     console.error('添加失败', error)
   }
 }
@@ -452,15 +479,21 @@ const handleCaseDialogClose = () => {
   caseDialogVisible.value = false
 }
 
-// 格式化日期时间，去掉秒
+// 格式化日期时间
 const formatDateTime = (datetime) => {
   if (!datetime) return ''
-  // 如果字符串长度足够，截取前16位 (YYYY-MM-DD HH:mm)
   if (datetime.length >= 16) {
     return datetime.substring(0, 16)
   }
   return datetime
 }
+
+// 初始化
+onMounted(async () => {
+  await fetchProjects()
+  await fetchTesterRoleId()
+  await fetchTesters()
+})
 </script>
 
 <style scoped>

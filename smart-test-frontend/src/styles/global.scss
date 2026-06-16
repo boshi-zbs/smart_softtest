@@ -1,0 +1,78 @@
+// src/styles/global.scss
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, 'Inter', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background-color: #f5f7fa;
+  -webkit-font-smoothing: antialiased;
+}
+
+// 卡片统一圆角与阴影
+.el-card {
+  border-radius: 16px !important;
+  border: 1px solid #eff2f5;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+.el-card:hover {
+  box-shadow: 0 8px 20px -6px rgba(0,0,0,0.08);
+}
+
+// 表格样式微调
+.el-table {
+  border-radius: 16px;
+  overflow: hidden;
+  --el-table-tr-bg-color: #ffffff;
+  --el-table-header-bg-color: #fafbfc;
+}
+.el-table th.el-table__cell {
+  font-weight: 600;
+  color: #1f2f3d;
+}
+
+// 按钮圆润
+.el-button {
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+.el-button--primary {
+  background-color: #1677ff;
+  border-color: #1677ff;
+}
+
+// 输入框圆角
+.el-input__wrapper,
+.el-select .el-input__wrapper {
+  border-radius: 8px;
+  box-shadow: 0 0 0 1px #e4e7ed inset;
+  transition: box-shadow 0.2s;
+}
+.el-input__wrapper:hover {
+  box-shadow: 0 0 0 1px #1677ff inset;
+}
+
+// 滚动条美化和字体
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: #d9d9d9;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #bfbfbf;
+}
+
+// src/styles/global.scss（在文件开头添加）
+:root {
+  --el-color-primary: #667eea;
+  --el-color-primary-light-3: #8e9ef0;
+  --el-color-primary-dark-2: #4c6ef5;
+}
+

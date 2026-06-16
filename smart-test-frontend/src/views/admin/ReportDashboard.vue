@@ -1,31 +1,31 @@
 <template>
   <div>
     <h2>测试仪表盘</h2>
-
+    <el-button type="primary" @click="refreshData" :icon="Refresh" style="margin-bottom:16px">刷新数据</el-button>
     <!-- 统计卡片（保持不变） -->
     <el-row :gutter="20">
-      <el-col :span="6">
+      <el-col :span="4">
         <el-card shadow="hover" class="stat-card">
           <div class="stat-icon">📁</div>
           <div class="stat-value">{{ stats.totalProjects || 0 }}</div>
           <div class="stat-label">总项目</div>
         </el-card>
       </el-col>
-      <el-col :span="6">
+      <el-col :span="4">
         <el-card shadow="hover" class="stat-card">
           <div class="stat-icon">📋</div>
           <div class="stat-value">{{ stats.totalRequirements || 0 }}</div>
           <div class="stat-label">总需求</div>
         </el-card>
       </el-col>
-      <el-col :span="6">
+      <el-col :span="4">
         <el-card shadow="hover" class="stat-card">
           <div class="stat-icon">🧪</div>
           <div class="stat-value">{{ stats.totalTestCases || 0 }}</div>
           <div class="stat-label">总用例</div>
         </el-card>
       </el-col>
-      <el-col :span="6">
+      <el-col :span="4">
         <el-card shadow="hover" class="stat-card">
           <div class="stat-icon">🐞</div>
           <div class="stat-value">{{ stats.totalDefects || 0 }}</div>
@@ -33,6 +33,14 @@
           <div class="stat-sub">未关闭：{{ stats.openDefects || 0 }}</div>
         </el-card>
       </el-col>
+      <el-col :span="4">
+      <el-card shadow="hover" class="stat-card">
+        <div class="stat-icon">🔌</div>
+        <div class="stat-value">{{ stats.totalApiCases || 0 }}</div>
+        <div class="stat-label">总接口用例</div>
+        <div class="stat-sub">通过率 {{ (stats.apiPassRate || 0).toFixed(1) }}%</div>
+      </el-card>
+    </el-col>
     </el-row>
 
     <!-- 项目摘要列表 + 缺陷分布（左右两栏） -->
@@ -114,9 +122,15 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted,onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { getDashboardStats } from '@/api/report'
+import { Refresh } from '@element-plus/icons-vue'
+let timer = null
+
+const refreshData = () => {
+  fetchDashboard()
+}
 
 const router = useRouter()
 const stats = ref({})
@@ -133,6 +147,13 @@ const fetchDashboard = async () => {
 
 onMounted(() => {
   fetchDashboard()
+  timer = setInterval(() => {
+    fetchDashboard()
+  }, 30000) // 30秒自动刷新
+})
+
+onUnmounted(() => {
+  if (timer) clearInterval(timer)
 })
 
 const viewProjectReport = (projectId) => {
@@ -181,7 +202,12 @@ const trendOption = computed(() => {
   text-align: center;
   cursor: pointer;
   transition: all 0.3s;
+  height: 190px;           /* 固定高度，所有卡片一致 */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
+
 .stat-card:hover {
   transform: translateY(-5px);
   box-shadow: 0 2px 12px 0 rgba(0,0,0,0.2);

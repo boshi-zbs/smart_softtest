@@ -52,13 +52,11 @@ CREATE TABLE IF NOT EXISTS `project` (
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 -- 成员表
 CREATE TABLE IF NOT EXISTS `project_member` (
-    `id` int NOT NULL AUTO_INCREMENT,
-    `project_id` int NOT NULL,
-    `user_id` int NOT NULL,
-    `role_in_project` varchar(50) DEFAULT NULL,
+                                                `project_id` int NOT NULL,
+                                                `user_id` int NOT NULL,
+                                                `role_in_project` varchar(50) DEFAULT NULL,
     `join_time` datetime DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_project_user` (`project_id`,`user_id`),
+    PRIMARY KEY (`project_id`, `user_id`),
     CONSTRAINT `fk_pm_project` FOREIGN KEY (`project_id`) REFERENCES `project` (`id`) ON DELETE CASCADE,
     CONSTRAINT `fk_pm_user` FOREIGN KEY (`user_id`) REFERENCES `user` (`id`) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -107,7 +105,6 @@ CREATE TABLE IF NOT EXISTS `test_case` (
     `precondition` text,
     `steps` text NOT NULL,
     `expected_result` text NOT NULL,
-    `actual_result` text,
     `priority` tinyint DEFAULT '2' COMMENT '1-冒烟，2-高，3-中，4-低',
     `type` varchar(20) DEFAULT '功能测试',
     `status` varchar(20) DEFAULT '有效' COMMENT '有效、无效、废弃',
@@ -127,11 +124,9 @@ CREATE TABLE IF NOT EXISTS `test_case` (
 
 -- 测试计划与用例关联表
 CREATE TABLE IF NOT EXISTS `plan_case` (
-    `id` int NOT NULL AUTO_INCREMENT,
     `plan_id` int NOT NULL,
     `case_id` int NOT NULL,
-    PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_plan_case` (`plan_id`,`case_id`),
+    PRIMARY KEY (`plan_id`, `case_id`),
     CONSTRAINT `fk_pc_plan` FOREIGN KEY (`plan_id`) REFERENCES `test_plan` (`id`) ON DELETE CASCADE,
     CONSTRAINT `fk_pc_case` FOREIGN KEY (`case_id`) REFERENCES `test_case` (`id`) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -145,7 +140,6 @@ CREATE TABLE IF NOT EXISTS `test_execution` (
     `result` varchar(20) NOT NULL COMMENT '通过、失败、阻塞、跳过',
     `actual_result` text COMMENT '实际结果描述',
     `duration_ms` int DEFAULT NULL COMMENT '执行耗时（毫秒）',
-    `is_automated` tinyint(1) DEFAULT '0' COMMENT '是否自动化执行',
     `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
     KEY `idx_plan` (`plan_id`),
@@ -365,3 +359,87 @@ CREATE TABLE IF NOT EXISTS defect_attachment (
     upload_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '上传时间',
     FOREIGN KEY (defect_id) REFERENCES defect(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='缺陷附件表';
+
+-- 接口模块表
+CREATE TABLE IF NOT EXISTS `api_module` (
+                                            `id` int NOT NULL AUTO_INCREMENT,
+                                            `project_id` int NOT NULL COMMENT '所属项目ID',
+                                            `module_name` varchar(100) NOT NULL COMMENT '模块名称',
+    `parent_id` int DEFAULT '0' COMMENT '父模块ID，支持多级',
+    `description` varchar(255) DEFAULT NULL,
+    `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `idx_project` (`project_id`),
+    CONSTRAINT `fk_api_module_project` FOREIGN KEY (`project_id`) REFERENCES `project` (`id`) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 接口定义表
+CREATE TABLE IF NOT EXISTS `api_info` (
+                                          `id` int NOT NULL AUTO_INCREMENT,
+                                          `project_id` int NOT NULL COMMENT '所属项目',
+                                          `module_id` int NOT NULL COMMENT '所属模块',
+                                          `name` varchar(100) NOT NULL COMMENT '接口名称',
+    `method` varchar(10) NOT NULL COMMENT '请求方法 GET/POST/PUT/DELETE/PATCH',
+    `url` varchar(500) NOT NULL COMMENT '接口路径',
+    `headers` text COMMENT '请求头 JSON格式',
+    `description` text COMMENT '接口描述',
+    `create_user_id` int DEFAULT NULL,
+    `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+    `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `idx_project` (`project_id`),
+    KEY `idx_module` (`module_id`),
+    CONSTRAINT `fk_api_info_project` FOREIGN KEY (`project_id`) REFERENCES `project` (`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_api_info_module` FOREIGN KEY (`module_id`) REFERENCES `api_module` (`id`) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 接口测试用例表
+CREATE TABLE IF NOT EXISTS `api_test_case` (
+                                               `id` int NOT NULL AUTO_INCREMENT,
+                                               `api_id` int NOT NULL COMMENT '关联接口ID',
+                                               `case_name` varchar(200) NOT NULL COMMENT '用例名称',
+    `request_params` text COMMENT '请求参数 JSON (如 query/body/form-data)',
+    `expected_status` int DEFAULT '200' COMMENT '期望HTTP状态码',
+    `expected_response` text COMMENT '期望响应体(部分匹配或JSON校验)',
+    `assert_type` varchar(20) DEFAULT 'contains' COMMENT '断言类型: contains/jsonpath/status',
+    `description` text,
+    `is_generated` tinyint(1) DEFAULT '0' COMMENT '是否AI生成',
+    `create_user_id` int DEFAULT NULL,
+    `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+    `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `idx_api` (`api_id`),
+    CONSTRAINT `fk_api_test_case_api` FOREIGN KEY (`api_id`) REFERENCES `api_info` (`id`) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 执行记录表（可选，用于展示历史）
+CREATE TABLE IF NOT EXISTS `api_test_execution` (
+                                                    `id` int NOT NULL AUTO_INCREMENT,
+                                                    `case_id` int NOT NULL,
+                                                    `executor_id` int DEFAULT NULL,
+                                                    `request_url` varchar(500) NOT NULL,
+    `request_method` varchar(10) NOT NULL,
+    `request_headers` text,
+    `request_body` text,
+    `response_status` int,
+    `response_body` text,
+    `assert_result` tinyint(1) DEFAULT '0' COMMENT '0失败 1成功',
+    `assert_message` text,
+    `duration_ms` int DEFAULT NULL,
+    `execute_time` datetime DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `idx_case` (`case_id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS `api_project_env` (
+                                                 `id` int NOT NULL AUTO_INCREMENT,
+                                                 `project_id` int NOT NULL COMMENT '项目ID',
+                                                 `env_name` varchar(50) NOT NULL DEFAULT 'default' COMMENT '环境名称',
+    `is_default` tinyint(1) DEFAULT '1' COMMENT '是否默认环境',
+    `variables` text COMMENT 'JSON格式的键值对',
+    `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+    `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_project_env` (`project_id`, `env_name`),
+    CONSTRAINT `fk_api_project_env_project` FOREIGN KEY (`project_id`) REFERENCES `project` (`id`) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

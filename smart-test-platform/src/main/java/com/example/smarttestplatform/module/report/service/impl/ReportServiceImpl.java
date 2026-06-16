@@ -1,5 +1,8 @@
 package com.example.smarttestplatform.module.report.service.impl;
 
+import com.example.smarttestplatform.module.apitester.entity.ApiTestExecution;
+import com.example.smarttestplatform.module.apitester.mapper.ApiTestCaseMapper;
+import com.example.smarttestplatform.module.apitester.mapper.ApiTestExecutionMapper;
 import com.example.smarttestplatform.module.defect.entity.Defect;
 import com.example.smarttestplatform.module.project.mapper.ProjectMapper;
 import com.example.smarttestplatform.module.project.mapper.ProjectMemberMapper;
@@ -47,6 +50,10 @@ public class ReportServiceImpl implements ReportService {
     @Autowired
     private AutoTestExecutionMapper autoTestExecutionMapper;
 
+    @Autowired
+    private ApiTestCaseMapper apiTestCaseMapper;
+    @Autowired
+    private ApiTestExecutionMapper apiTestExecutionMapper;
     @Override
     public DashboardStats getDashboardStats(Integer userId) {
         System.out.println("\n========== 获取仪表盘数据 ==========");
@@ -78,19 +85,32 @@ public class ReportServiceImpl implements ReportService {
         Integer totalDefects = defectMapper.countByProjectIds(projectIds);
         Integer openDefects = defectMapper.countOpenByProjectIds(projectIds);
 
-        System.out.println("✅ 统计结果:");
-        System.out.println("   - 项目数：" + totalProjects);
-        System.out.println("   - 需求数：" + totalRequirements);
-        System.out.println("   - 用例数：" + totalTestCases);
-        System.out.println("   - 缺陷数：" + totalDefects);
-        System.out.println("   - 未关闭缺陷：" + openDefects);
-
+        // 接口测试统计
+        Integer totalApiCases = apiTestCaseMapper.countByProjectIds(projectIds);
         DashboardStats stats = new DashboardStats();
         stats.setTotalProjects(totalProjects);
         stats.setTotalRequirements(totalRequirements);
         stats.setTotalTestCases(totalTestCases);
         stats.setTotalDefects(totalDefects);
         stats.setOpenDefects(openDefects);
+
+        stats.setTotalApiCases(totalApiCases);
+        // 计算通过率：基于所有用例的最新执行记录，计算成功比例
+        double apiPassRate = 0.0;
+        if (totalApiCases != null && totalApiCases > 0) {
+            // 获取所有项目下的所有接口测试用例ID
+            List<Integer> allApiCaseIds = new ArrayList<>();
+            for (Integer pid : projectIds) {
+                List<Integer> ids = apiTestCaseMapper.findIdsByProjectId(pid);
+                if (ids != null) allApiCaseIds.addAll(ids);
+            }
+            if (!allApiCaseIds.isEmpty()) {
+                List<ApiTestExecution> latestExecutions = apiTestExecutionMapper.findLatestByCaseIds(allApiCaseIds);
+                long passedCount = latestExecutions.stream().filter(ApiTestExecution::getAssertResult).count();
+                apiPassRate = passedCount * 100.0 / allApiCaseIds.size();
+            }
+        }
+        stats.setApiPassRate(apiPassRate);
 
         stats.setProjectSummaries(buildProjectSummaries(projectIds));
         stats.setRecentActivities(buildRecentActivities(projectIds));
@@ -134,7 +154,7 @@ public class ReportServiceImpl implements ReportService {
         AutoTestStats autoStats = getAutoTestStats(projectId);
         stats.setAutoTestStats(autoStats);
         // =========================================
-
+        stats.setApiTestStats(getApiTestStats(projectId, startDate, endDate));
         return stats;
     }
 
@@ -465,5 +485,38 @@ public class ReportServiceImpl implements ReportService {
         } catch (Exception e) {
             return null;
         }
+    }
+
+    private ProjectReportStats.ApiTestStats getApiTestStats(Integer projectId, String startDate, String endDate) {
+        ProjectReportStats.ApiTestStats stats = new ProjectReportStats.ApiTestStats();
+        // 1. 总用例数
+        Integer total = apiTestCaseMapper.countByProjectId(projectId);
+        stats.setTotalCases(total == null ? 0 : total);
+        if (total == null || total == 0) {
+            stats.setExecutedCases(0);
+            stats.setPassedCases(0);
+            stats.setPassRate(0.0);
+            return stats;
+        }
+        // 2. 获取该项目下所有接口测试用例ID
+        List<Integer> caseIds = apiTestCaseMapper.findIdsByProjectId(projectId);
+        if (caseIds == null || caseIds.isEmpty()) {
+            stats.setExecutedCases(0);
+            stats.setPassedCases(0);
+            stats.setPassRate(0.0);
+            return stats;
+        }
+        // 3. 获取这些用例的最新执行记录（不考虑时间范围，因为执行记录本身有时间）
+        List<ApiTestExecution> latestExecutions = apiTestExecutionMapper.findLatestByCaseIds(caseIds);
+        // 已执行用例数 = 有执行记录的用例数
+        int executed = latestExecutions.size();
+        stats.setExecutedCases(executed);
+        // 通过用例数 = 最新执行记录中 assertResult = true 的数量
+        long passed = latestExecutions.stream().filter(ApiTestExecution::getAssertResult).count();
+        stats.setPassedCases((int) passed);
+        // 通过率 = 通过用例数 / 总用例数
+        double passRate = (total == 0) ? 0.0 : (passed * 100.0 / total);
+        stats.setPassRate(passRate);
+        return stats;
     }
 }

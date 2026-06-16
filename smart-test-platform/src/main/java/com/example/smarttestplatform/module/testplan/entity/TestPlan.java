@@ -17,7 +17,8 @@ public class TestPlan {
     private Integer creatorId;
     private Date createTime;
     private Date updateTime;
-
+    private Integer assigneeId;      // 负责人ID
+    private String assigneeName;     // 非数据库字段，用于显示
 
     // 非数据库字段，用于显示关联信息
     private String projectName;

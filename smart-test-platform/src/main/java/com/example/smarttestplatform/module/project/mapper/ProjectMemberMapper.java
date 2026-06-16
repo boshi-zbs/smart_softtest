@@ -9,8 +9,6 @@ import java.util.Map;
 @Mapper
 public interface ProjectMemberMapper {
 
-    @Select("SELECT * FROM project_member WHERE id = #{id}")
-    ProjectMember findById(@Param("id") Integer id);
 
     @Select("SELECT * FROM project_member WHERE project_id = #{projectId}")
     List<ProjectMember> findByProjectId(@Param("projectId") Integer projectId);
@@ -18,15 +16,14 @@ public interface ProjectMemberMapper {
     @Select("SELECT * FROM project_member WHERE project_id = #{projectId} AND user_id = #{userId}")
     ProjectMember findByProjectAndUser(@Param("projectId") Integer projectId, @Param("userId") Integer userId);
 
-    @Insert("INSERT INTO project_member(project_id, user_id, role_in_project) VALUES(#{projectId}, #{userId}, #{roleInProject})")
-    @Options(useGeneratedKeys = true, keyProperty = "id")
+    @Insert("INSERT INTO project_member(project_id, user_id, role_in_project, join_time) VALUES(#{projectId}, #{userId}, #{roleInProject}, NOW())")
     int insert(ProjectMember projectMember);
 
-    @Update("UPDATE project_member SET role_in_project = #{roleInProject} WHERE id = #{id}")
-    int update(ProjectMember projectMember);
+    @Update("UPDATE project_member SET role_in_project = #{roleInProject} WHERE project_id = #{projectId} AND user_id = #{userId}")
+    int update(ProjectMember member);
 
-    @Delete("DELETE FROM project_member WHERE id = #{id}")
-    int deleteById(@Param("id") Integer id);
+    @Delete("DELETE FROM project_member WHERE project_id = #{projectId} AND user_id = #{userId}")
+    int deleteByProjectAndUser(@Param("projectId") Integer projectId, @Param("userId") Integer userId);
 
     @Delete("DELETE FROM project_member WHERE project_id = #{projectId}")
     int deleteByProjectId(@Param("projectId") Integer projectId);

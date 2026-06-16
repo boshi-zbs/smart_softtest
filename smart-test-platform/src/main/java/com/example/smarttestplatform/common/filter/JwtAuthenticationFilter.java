@@ -29,7 +29,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
-
+        // 直接放行 OPTIONS 预检请求，不需要任何认证
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            filterChain.doFilter(request, response);
+            return;
+        }
         final String authHeader = request.getHeader(JwtConstant.TOKEN_HEADER);
         String username = null;
         String jwt = null;

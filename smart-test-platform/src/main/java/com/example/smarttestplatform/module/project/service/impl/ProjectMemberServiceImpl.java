@@ -34,10 +34,6 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
     @Autowired
     private ProjectUtils projectUtils;
 
-    @Override
-    public ProjectMember findById(Integer id) {
-        return projectMemberMapper.findById(id);
-    }
 
     @Override
     public List<ProjectMember> findByProjectId(Integer projectId) {
@@ -115,34 +111,42 @@ public class ProjectMemberServiceImpl implements ProjectMemberService {
     @Override
     @Transactional
     public void updateMember(ProjectMember projectMember) {
-        ProjectMember old = projectMemberMapper.findById(projectMember.getId());
-        if (old != null) {
-            projectUtils.checkNotArchived(old.getProjectId());
+        // 1. 通过联合主键 (projectId, userId) 查询旧记录
+        ProjectMember old = projectMemberMapper.findByProjectAndUser(
+                projectMember.getProjectId(),
+                projectMember.getUserId()
+        );
+        if (old == null) {
+            throw new RuntimeException("成员记录不存在");
         }
-        // 更新时一般只修改角色，不需要发送消息（可选）
+        // 2. 校验项目是否归档（使用旧记录中的 projectId）
+        projectUtils.checkNotArchived(old.getProjectId());
+        // 3. 更新角色（只更新 roleInProject 字段，Mapper 中的 update 语句基于联合主键）
         projectMemberMapper.update(projectMember);
     }
 
     @Override
     @Transactional
-    public void removeMember(Integer id) {
-        ProjectMember member = projectMemberMapper.findById(id);
-        if (member != null) {
-            projectUtils.checkNotArchived(member.getProjectId());
+    public void removeMember(Integer projectId, Integer userId) {
+        // 先查询是否存在
+        ProjectMember member = projectMemberMapper.findByProjectAndUser(projectId, userId);
+        if (member == null) {
+            throw new RuntimeException("成员不存在");
         }
-
-        if (member != null) {
-            projectMemberMapper.deleteById(id);
-            // 可以发送移除通知（可选）
-        }
+        projectUtils.checkNotArchived(member.getProjectId());
+        projectMemberMapper.deleteByProjectAndUser(projectId, userId);
     }
 
     @Override
     @Transactional
-    public void removeBatch(List<Integer> ids) {
-        if (ids == null || ids.isEmpty()) return;
-        for (Integer id : ids) {
-            projectMemberMapper.deleteById(id);
+    public void removeBatch(List<ProjectMember> members) {
+        if (members == null || members.isEmpty()) return;
+        for (ProjectMember member : members) {
+            // 先检查是否存在
+            ProjectMember existing = projectMemberMapper.findByProjectAndUser(member.getProjectId(), member.getUserId());
+            if (existing == null) continue;
+            projectUtils.checkNotArchived(existing.getProjectId());
+            projectMemberMapper.deleteByProjectAndUser(member.getProjectId(), member.getUserId());
         }
     }
 

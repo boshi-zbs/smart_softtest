@@ -66,7 +66,7 @@
       <template #columns>
         <el-table-column type="selection" width="55" />
         <el-table-column type="index" label="序号" width="60" />
-        <el-table-column prop="id" label="ID" width="80" />
+        <!-- <el-table-column prop="id" label="ID" width="80" /> -->
         <el-table-column prop="title" label="标题" />
         <el-table-column prop="projectName" label="项目" />
         <el-table-column prop="severity" label="严重程度" width="100" />
@@ -79,11 +79,23 @@
         <el-table-column prop="reporterName" label="报告人" width="120" />
         <el-table-column prop="assigneeName" label="指派人" width="120" />
         <el-table-column prop="createTime" label="创建时间" width="180" />
-        <el-table-column label="操作" width="220">
+        <el-table-column label="操作" width="350">
           <template #default="{ row }">
             <el-button size="small" @click="handleView(row)">查看</el-button>
             <el-button size="small" type="primary" @click="handleEdit(row)">编辑</el-button>
-            <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
+            <el-button 
+            v-if="['已修复', '驳回'].includes(row.status)" 
+            size="small" 
+            type="warning" 
+            @click="handleReopen(row)"
+          >重新打开</el-button>
+               <el-button 
+            v-if="row.status === '已修复'" 
+            size="small" 
+            type="success" 
+            @click="handleVerify(row)"
+          >验证</el-button>
+           <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
       </template>
@@ -228,7 +240,7 @@ import { ref, onMounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import CommonTable from '@/components/CommonTable.vue'
 import { getDefectList, getDefect, createDefect, updateDefect, deleteDefect, deleteDefectsBatch,
-         getDefectComments, addDefectComment } from '@/api/defect'
+         getDefectComments, addDefectComment,changeDefectStatus } from '@/api/defect'
 import { getProjectList } from '@/api/project'
 import { getTestCaseList } from '@/api/testcase'
 import { getRequirementList } from '@/api/requirement'
@@ -239,6 +251,11 @@ import { useRoute} from 'vue-router'
 import { getAutoTestCase } from '@/api/autotest'   // 导入自动化用例详情接口
 import { getToken } from '@/utils/auth'
 import { ElImageViewer } from 'element-plus'
+import { getPublicRoles } from '@/api/role'
+
+// 添加响应式变量
+const devRoleId = ref(null)
+
 // 上传相关
 const uploadUrl = ref('/api/defects/upload-attachment')
 const uploadHeaders = ref({
@@ -293,9 +310,23 @@ const fetchRequirements = async () => {
     console.error('获取需求列表失败', error)
   }
 }
+// 获取开发人员角色ID
+const fetchDevRoleId = async () => {
+  try {
+    const res = await getPublicRoles()
+    const devRole = res.data.find(r => r.roleCode === 'ROLE_DEV')
+    if (devRole) devRoleId.value = devRole.id
+  } catch (error) {
+    console.error('获取角色列表失败', error)
+  }
+}
 const fetchUsers = async () => {
   try {
-    const res = await getUserList({ page: 1, size: 1000 })
+    const params = { page: 1, size: 1000 }
+    if (devRoleId.value) {
+      params.roleId = devRoleId.value
+    }
+    const res = await getUserList(params)
     userOptions.value = res.data.records
   } catch (error) {
     console.error('获取用户列表失败', error)
@@ -303,21 +334,51 @@ const fetchUsers = async () => {
 }
 
 onMounted(async () => {
-   console.log('DefectManagement onMounted, route.query:', route.query);
+   // 新增：获取开发角色ID
+  await fetchDevRoleId()
+  
+  console.log('DefectManagement onMounted, route.query:', route.query);
   await fetchProjects()
   await fetchTestCases()
   await fetchRequirements()
   await fetchUsers()
- // 优先根据 executionId 判断是否为自动化执行跳转
-  if (route.query.executionId) {
+
+  // 优先判断是否为接口测试提交（新增）
+  if (route.query.source === 'api') {
+    handleAddFromApiTest(route.query)
+  }
+  // 根据 executionId 判断是否为自动化执行跳转
+  else if (route.query.executionId) {
     await handleAddFromAutoTest(route.query)
   }
-  // 否则，如果有 caseId 但没有 log，可能是手动执行跳转
+  // 如果有 caseId 但没有 log，可能是手动执行跳转
   else if (route.query.caseId) {
     handleAddFromExecution(route.query)
   }
 })
-
+const handleAddFromApiTest = (query) => {
+  dialogType.value = 'add'
+  dialogTitle.value = '提交缺陷'
+  form.value = {
+    id: null,
+    title: query.title || '',
+    description: query.description || '',
+    projectId: query.projectId ? parseInt(query.projectId) : null,
+    testCaseId: query.caseId ? parseInt(query.caseId) : null,
+    severity: '一般',
+    priority: '中',
+    status: '新建',
+    assigneeId: null,
+    foundVersion: '',
+    fixedVersion: '',
+    autoExecutionId: null
+  }
+  fileList.value = []
+  dialogVisible.value = true
+  nextTick(() => {
+    formRef.value?.clearValidate()
+  })
+}
 // 从执行页面跳转过来时，自动打开新增对话框并填充数据
 const handleAddFromExecution = (query) => {
   dialogType.value = 'add'
@@ -678,6 +739,60 @@ const handleDialogClose = () => {
   fileList.value = []  // ✅ 清空附件
 }
 
+// 重新打开缺陷
+const handleReopen = (row) => {
+  ElMessageBox.prompt('请输入重新打开的原因（可选）', '重新打开缺陷', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    inputType: 'textarea',
+    inputPlaceholder: '请说明重新打开的原因...'
+  }).then(async ({ value }) => {
+    try {
+      await changeDefectStatus(row.id, '重新打开', value || '')
+      ElMessage.success('缺陷已重新打开')
+      // 刷新列表
+      tableRef.value?.refresh()
+    } catch (error) {
+      console.error('重新打开失败', error)
+    }
+  }).catch(() => {})
+}
+// 验证缺陷
+const handleVerify = (row) => {
+  ElMessageBox.confirm('请确认该缺陷是否已修复通过？', '验证缺陷', {
+    confirmButtonText: '通过（关闭）',
+    cancelButtonText: '不通过（重新打开）',
+    distinguishCancelAndClose: true,
+    type: 'info'
+  }).then(async () => {
+    // 用户点击“通过（关闭）”
+    try {
+      await changeDefectStatus(row.id, '已关闭', '测试验证通过')
+      ElMessage.success('缺陷已关闭')
+      tableRef.value?.refresh()
+    } catch (error) {
+      console.error('关闭失败', error)
+    }
+  }).catch((action) => {
+    if (action === 'cancel') {
+      // 用户点击“不通过（重新打开）”
+      ElMessageBox.prompt('请输入重新打开的原因（可选）', '重新打开缺陷', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        inputType: 'textarea',
+        inputPlaceholder: '请说明不通过的原因...'
+      }).then(async ({ value }) => {
+        try {
+          await changeDefectStatus(row.id, '重新打开', value || '验证不通过')
+          ElMessage.success('缺陷已重新打开')
+          tableRef.value?.refresh()
+        } catch (error) {
+          console.error('重新打开失败', error)
+        }
+      }).catch(() => {})
+    }
+  })
+}
 // 删除单个
 const handleDelete = (row) => {
   ElMessageBox.confirm(`确认删除缺陷 ${row.title} 吗？`, '提示', {

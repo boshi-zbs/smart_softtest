@@ -97,6 +97,28 @@
         </el-card>
       </el-col>
     </el-row>
+
+    <el-row style="margin-top: 20px;">
+  <el-col :span="24">
+    <el-card>
+      <template #header>接口测试统计</template>
+      <el-row :gutter="20">
+        <el-col :span="6">
+          <div class="auto-stat">总接口用例：{{ report.apiTestStats?.totalCases || 0 }}</div>
+        </el-col>
+        <el-col :span="6">
+          <div class="auto-stat">已执行：{{ report.apiTestStats?.executedCases || 0 }}</div>
+        </el-col>
+        <el-col :span="6">
+          <div class="auto-stat">通过：{{ report.apiTestStats?.passedCases || 0 }}</div>
+        </el-col>
+        <el-col :span="6">
+          <div class="auto-stat">通过率：{{ (report.apiTestStats?.passRate || 0).toFixed(1) }}%</div>
+        </el-col>
+      </el-row>
+    </el-card>
+  </el-col>
+</el-row>
   </div>
 </template>
 

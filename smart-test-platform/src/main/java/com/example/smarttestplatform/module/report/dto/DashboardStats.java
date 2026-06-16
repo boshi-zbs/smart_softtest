@@ -13,7 +13,8 @@ public class DashboardStats {
     private Integer totalTestCases;
     private Integer totalDefects;
     private Integer openDefects;
-
+    private Integer totalApiCases;      // 接口测试用例总数
+    private Double apiPassRate;          // 接口测试通过率（0-100）
 
     // 新增字段 - 项目列表及关键指标
     private List<ProjectSummary> projectSummaries;

@@ -34,4 +34,6 @@ public interface MessageMapper {
 
     @Update("UPDATE message SET status = 'completed' WHERE id = #{id} AND status = 'pending'")
     int complete(Integer id);
+
+    void completeByRelated(Integer relatedId, String relatedType);
 }

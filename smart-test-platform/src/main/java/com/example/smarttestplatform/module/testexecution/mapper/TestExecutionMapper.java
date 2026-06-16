@@ -12,8 +12,8 @@ public interface TestExecutionMapper {
     @Select("SELECT * FROM test_execution WHERE id = #{id}")
     TestExecution findById(@Param("id") Integer id);
 
-    @Insert("INSERT INTO test_execution(plan_id, case_id, executor_id, execute_time, result, actual_result, duration_ms, is_automated) " +
-            "VALUES(#{planId}, #{caseId}, #{executorId}, #{executeTime}, #{result}, #{actualResult}, #{durationMs}, #{isAutomated})")
+    @Insert("INSERT INTO test_execution(plan_id, case_id, executor_id, execute_time, result, actual_result, duration_ms) " +
+            "VALUES(#{planId}, #{caseId}, #{executorId}, #{executeTime}, #{result}, #{actualResult}, #{durationMs})")
     @Options(useGeneratedKeys = true, keyProperty = "id")
     int insert(TestExecution execution);
 

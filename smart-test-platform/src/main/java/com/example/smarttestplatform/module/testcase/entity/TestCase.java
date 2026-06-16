@@ -12,7 +12,6 @@ public class TestCase {
     private String precondition;
     private String steps;
     private String expectedResult;
-    private String actualResult;          // 最近一次执行的实际结果
     private Integer priority;              // 1-最高，2-高，3-中，4-低
     private String type;                   // 功能测试、性能测试等
     private String status;                  // 有效、无效、废弃

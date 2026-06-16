@@ -14,7 +14,6 @@ public class TestExecution {
     private String result;          // 通过、失败、阻塞、跳过
     private String actualResult;
     private Integer durationMs;
-    private Boolean isAutomated;
     private Date createTime;
 
     // 非数据库字段，用于显示

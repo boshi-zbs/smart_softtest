@@ -1,5 +1,11 @@
 <template>
   <div>
+    <!-- 分类提示栏 -->
+    <el-card class="filter-info" style="margin-bottom: 16px; background-color: #f5f7fa;">
+      <span style="font-weight: bold;">当前分类：{{ pageTitle }}</span>
+      <el-button v-if="filterType" type="text" @click="clearFilter">查看全部用例</el-button>
+    </el-card>
+
     <!-- 操作栏 -->
     <div class="action-bar">
       <el-button type="success" @click="openAIDialog">AI生成用例</el-button>
@@ -26,7 +32,7 @@
           <el-input v-model="searchForm.title" placeholder="标题" clearable style="width: 150px;" />
         </el-form-item>
         <el-form-item label="类型">
-          <el-select v-model="searchForm.type" placeholder="全部" clearable style="width: 120px;">
+          <el-select v-model="searchForm.type" placeholder="全部" clearable style="width: 120px;" :disabled="!!filterType">
             <el-option label="功能测试" value="功能测试" />
             <el-option label="性能测试" value="性能测试" />
             <el-option label="安全测试" value="安全测试" />
@@ -127,7 +133,7 @@
           <el-input v-model="form.expectedResult" type="textarea" :rows="2" />
         </el-form-item>
         <el-form-item label="类型" prop="type" required>
-          <el-select v-model="form.type" placeholder="请选择" style="width:100%">
+          <el-select v-model="form.type" placeholder="请选择" style="width:100%" :disabled="typeDisabled">
             <el-option label="功能测试" value="功能测试" />
             <el-option label="性能测试" value="性能测试" />
             <el-option label="安全测试" value="安全测试" />
@@ -183,7 +189,7 @@
       </template>
     </el-dialog>
 
-    <!-- 复制用例对话框（选择目标计划） -->
+    <!-- 复制用例对话框 -->
     <el-dialog title="复制用例" v-model="copyDialogVisible" width="400px">
       <el-form :model="copyForm">
         <el-form-item label="目标计划" prop="targetPlanId" required>
@@ -204,124 +210,125 @@
         </span>
       </template>
     </el-dialog>
-  </div>
 
     <!-- AI生成用例对话框 -->
-  <el-dialog title="AI生成测试用例" v-model="aiDialogVisible" width="1000px" @close="resetAIDialog">
-    <el-steps :active="step" finish-status="success" simple style="margin-bottom:20px">
-      <el-step title="上传需求" />
-      <el-step title="预览编辑" />
-      <el-step title="选择计划" />
-    </el-steps>
+    <el-dialog title="AI生成测试用例" v-model="aiDialogVisible" width="1000px" @close="resetAIDialog">
+      <el-steps :active="step" finish-status="success" simple style="margin-bottom:20px">
+        <el-step title="上传需求" />
+        <el-step title="预览编辑" />
+        <el-step title="选择计划" />
+      </el-steps>
 
-    <!-- Step 1 -->
-    <div v-show="step === 0">
-      <el-form label-width="100px">
-        <el-form-item label="关联项目">
-          <el-select v-model="aiProjectId" placeholder="请选择项目" clearable style="width:300px">
+      <!-- Step 1 -->
+      <div v-show="step === 0">
+        <el-form label-width="100px">
+          <el-form-item label="关联项目">
+            <el-select v-model="aiProjectId" placeholder="请选择项目" clearable style="width:300px">
+              <el-option v-for="item in projectOptions" :key="item.id" :label="item.projectName" :value="item.id" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="需求文档">
+            <el-upload :auto-upload="false" :on-change="handleFileChange" :limit="1" accept=".txt,.md,.docx">
+              <el-button>上传文件</el-button>
+              <template #tip>支持 .txt, .md, .docx</template>
+            </el-upload>
+          </el-form-item>
+          <el-form-item label="或直接粘贴">
+            <el-input v-model="aiContent" type="textarea" :rows="8" placeholder="请输入需求描述..." />
+          </el-form-item>
+        </el-form>
+        <div class="dialog-footer">
+          <el-button @click="aiDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="generateCases" :loading="generating">生成用例</el-button>
+        </div>
+      </div>
+
+      <!-- Step 2 -->
+      <div v-show="step === 1">
+        <el-table :data="aiCases" border max-height="400">
+          <el-table-column type="selection" width="55" />
+          <el-table-column prop="title" label="标题" min-width="180">
+            <template #default="{ row }">
+              <el-input v-model="row.title" size="small" />
+            </template>
+          </el-table-column>
+          <el-table-column prop="type" label="类型" width="120">
+            <template #default="{ row }">
+              <el-select v-model="row.type" size="small">
+                <el-option label="功能测试" value="功能测试" />
+                <el-option label="性能测试" value="性能测试" />
+                <el-option label="安全测试" value="安全测试" />
+                <el-option label="兼容性测试" value="兼容性测试" />
+              </el-select>
+            </template>
+          </el-table-column>
+          <el-table-column prop="priority" label="优先级" width="100">
+            <template #default="{ row }">
+              <el-select v-model="row.priority" size="small">
+                <el-option label="最高" :value="1" />
+                <el-option label="高" :value="2" />
+                <el-option label="中" :value="3" />
+                <el-option label="低" :value="4" />
+              </el-select>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="80">
+            <template #default="{ $index }">
+              <el-button type="danger" size="small" @click="aiCases.splice($index,1)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+        <el-button type="primary" text style="margin-top:10px" @click="addManualCase">+ 手动添加一行</el-button>
+        <div class="dialog-footer">
+          <el-button @click="step = 0">上一步</el-button>
+          <el-button type="primary" @click="step = 2">下一步</el-button>
+        </div>
+      </div>
+
+      <!-- Step 3 -->
+      <div v-show="step === 2">
+        <el-form label-width="100px">
+          <el-form-item label="目标测试计划">
+            <el-select v-model="targetPlanId" placeholder="请选择计划" style="width:300px">
+              <el-option v-for="p in filteredPlanOptions" :key="p.id" :label="p.planName" :value="p.id" />
+            </el-select>
+            <el-button type="primary" text style="margin-left:10px" @click="openCreatePlanDialog">新建计划</el-button>
+          </el-form-item>
+          <div style="color:#999; margin-left:100px">将为选中的用例添加到该计划</div>
+        </el-form>
+        <div class="dialog-footer">
+          <el-button @click="step = 1">上一步</el-button>
+          <el-button type="primary" @click="saveAICases" :loading="savingAI">保存用例</el-button>
+        </div>
+      </div>
+    </el-dialog>
+
+    <!-- 快速新建计划对话框 -->
+    <el-dialog title="新建测试计划" v-model="createPlanDialogVisible" width="500px">
+      <el-form :model="newPlanForm" label-width="80px">
+        <el-form-item label="计划名称" required>
+          <el-input v-model="newPlanForm.planName" />
+        </el-form-item>
+        <el-form-item label="所属项目" required>
+          <el-select v-model="newPlanForm.projectId" placeholder="请选择项目" style="width:100%">
             <el-option v-for="item in projectOptions" :key="item.id" :label="item.projectName" :value="item.id" />
           </el-select>
         </el-form-item>
-        <el-form-item label="需求文档">
-          <el-upload :auto-upload="false" :on-change="handleFileChange" :limit="1" accept=".txt,.md,.docx">
-            <el-button>上传文件</el-button>
-            <template #tip>支持 .txt, .md, .docx</template>
-          </el-upload>
-        </el-form-item>
-        <el-form-item label="或直接粘贴">
-          <el-input v-model="aiContent" type="textarea" :rows="8" placeholder="请输入需求描述..." />
+        <el-form-item label="描述">
+          <el-input v-model="newPlanForm.description" type="textarea" />
         </el-form-item>
       </el-form>
-      <div class="dialog-footer">
-        <el-button @click="aiDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="generateCases" :loading="generating">生成用例</el-button>
-      </div>
-    </div>
-
-    <!-- Step 2 -->
-    <div v-show="step === 1">
-      <el-table :data="aiCases" border max-height="400">
-        <el-table-column type="selection" width="55" />
-        <el-table-column prop="title" label="标题" min-width="180">
-          <template #default="{ row }">
-            <el-input v-model="row.title" size="small" />
-          </template>
-        </el-table-column>
-        <el-table-column prop="type" label="类型" width="120">
-          <template #default="{ row }">
-            <el-select v-model="row.type" size="small">
-              <el-option label="功能测试" value="功能测试" />
-              <el-option label="性能测试" value="性能测试" />
-              <el-option label="安全测试" value="安全测试" />
-              <el-option label="兼容性测试" value="兼容性测试" />
-            </el-select>
-          </template>
-        </el-table-column>
-        <el-table-column prop="priority" label="优先级" width="100">
-          <template #default="{ row }">
-            <el-select v-model="row.priority" size="small">
-              <el-option label="最高" :value="1" />
-              <el-option label="高" :value="2" />
-              <el-option label="中" :value="3" />
-              <el-option label="低" :value="4" />
-            </el-select>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="80">
-          <template #default="{ $index }">
-            <el-button type="danger" size="small" @click="aiCases.splice($index,1)">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-      <el-button type="primary" text style="margin-top:10px" @click="addManualCase">+ 手动添加一行</el-button>
-      <div class="dialog-footer">
-        <el-button @click="step = 0">上一步</el-button>
-        <el-button type="primary" @click="step = 2">下一步</el-button>
-      </div>
-    </div>
-
-    <!-- Step 3 -->
-    <div v-show="step === 2">
-      <el-form label-width="100px">
-        <el-form-item label="目标测试计划">
-          <el-select v-model="targetPlanId" placeholder="请选择计划" style="width:300px">
-            <el-option v-for="p in filteredPlanOptions" :key="p.id" :label="p.planName" :value="p.id" />
-          </el-select>
-          <el-button type="primary" text style="margin-left:10px" @click="openCreatePlanDialog">新建计划</el-button>
-        </el-form-item>
-        <div style="color:#999; margin-left:100px">将为选中的用例添加到该计划</div>
-      </el-form>
-      <div class="dialog-footer">
-        <el-button @click="step = 1">上一步</el-button>
-        <el-button type="primary" @click="saveAICases" :loading="savingAI">保存用例</el-button>
-      </div>
-    </div>
-  </el-dialog>
-
-  <!-- 快速新建计划对话框 -->
-  <el-dialog title="新建测试计划" v-model="createPlanDialogVisible" width="500px">
-    <el-form :model="newPlanForm" label-width="80px">
-      <el-form-item label="计划名称" required>
-        <el-input v-model="newPlanForm.planName" />
-      </el-form-item>
-      <el-form-item label="所属项目" required>
-        <el-select v-model="newPlanForm.projectId" placeholder="请选择项目" style="width:100%">
-          <el-option v-for="item in projectOptions" :key="item.id" :label="item.projectName" :value="item.id" />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="描述">
-        <el-input v-model="newPlanForm.description" type="textarea" />
-      </el-form-item>
-    </el-form>
-    <template #footer>
-      <el-button @click="createPlanDialogVisible = false">取消</el-button>
-      <el-button type="primary" @click="confirmCreatePlan">确定</el-button>
-    </template>
-  </el-dialog>
+      <template #footer>
+        <el-button @click="createPlanDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="confirmCreatePlan">确定</el-button>
+      </template>
+    </el-dialog>
+  </div>
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick, computed ,watch} from 'vue'
+import { ref, onMounted, nextTick, computed, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import CommonTable from '@/components/CommonTable.vue'
 import { getTestCaseList, createTestCase, updateTestCase, deleteTestCase, deleteTestCasesBatch } from '@/api/testcase'
@@ -331,42 +338,38 @@ import { getModulesByProject } from '@/api/projectModule'
 import { getProjectList } from '@/api/project'
 import { createTestPlan } from '@/api/testplan'
 import { aiGenerateTestCases, batchCreateTestCase } from '@/api/testcase'
+
+const route = useRoute()
+const router = useRouter()
+
+// 路由参数获取当前分类（type）
+const filterType = computed(() => route.meta.filterType || null)
+const pageTitle = computed(() => {
+  const typeMap = {
+    '功能测试': '功能测试用例',
+    '性能测试': '性能测试用例',
+    '安全测试': '安全测试用例',
+    '兼容性测试': '兼容性测试用例'
+  }
+  return filterType.value ? typeMap[filterType.value] : '全部用例'
+})
+
+const clearFilter = () => {
+  router.push('/tester/cases')
+}
+
 const tableRef = ref()
 const selectedRows = ref([])
 const selectedPlanId = ref(null)
 const planOptions = ref([])
 const allRequirements = ref([])
-const currentPlanName = ref('') // 用于编辑时显示
-// 项目选项（用于AI步骤和新建计划）
+const currentPlanName = ref('')
 const projectOptions = ref([])
-
-// AI对话框相关
-const aiDialogVisible = ref(false)
-const step = ref(0)
-const aiProjectId = ref(null)
-const aiContent = ref('')
-const aiFile = ref(null)
-const generating = ref(false)
-const aiCases = ref([])
-const targetPlanId = ref(null)
-const savingAI = ref(false)
-
-// 快速新建计划
-const createPlanDialogVisible = ref(false)
-const newPlanForm = ref({ planName: '', description: '', projectId: null })
-
-// 过滤后的需求（只显示当前计划所属项目的需求）
-const filteredRequirements = computed(() => {
-  if (!selectedPlanId.value) return []
-  const selectedPlan = planOptions.value.find(p => p.id === selectedPlanId.value)
-  if (!selectedPlan) return []
-  const projectId = selectedPlan.projectId // 需要确保 planOptions 中包含 projectId
-  return allRequirements.value.filter(r => r.projectId === projectId)
-})
-
 const moduleOptions = ref([])
 
-// 监听计划变化，加载对应项目的模块
+// 新增时类型是否禁用
+const typeDisabled = ref(false)
+
 watch(selectedPlanId, async (newVal) => {
   if (!newVal) {
     moduleOptions.value = []
@@ -383,7 +386,6 @@ watch(selectedPlanId, async (newVal) => {
   }
 }, { immediate: true })
 
-// 查询条件
 const searchForm = ref({
   title: '',
   type: '',
@@ -391,7 +393,16 @@ const searchForm = ref({
   priority: null
 })
 
-// 加载测试计划列表（包含项目ID）
+watch(() => filterType.value, (newType) => {
+  searchForm.value.type = newType || ''
+  if (selectedPlanId.value) {
+    currentPage.value = 1
+    tableRef.value?.triggerSearch()
+  }
+}, { immediate: true })
+
+const currentPage = ref(1)
+
 const fetchPlans = async () => {
   try {
     const res = await getTestPlanList({ page: 1, size: 1000 })
@@ -401,7 +412,6 @@ const fetchPlans = async () => {
   }
 }
 
-// 加载所有需求
 const fetchRequirements = async () => {
   try {
     const res = await getRequirementList({ page: 1, size: 1000 })
@@ -411,26 +421,36 @@ const fetchRequirements = async () => {
   }
 }
 
+const fetchProjects = async () => {
+  try {
+    const res = await getProjectList({ page: 1, size: 1000 })
+    projectOptions.value = res.data.records
+  } catch (error) {
+    console.error('获取项目列表失败', error)
+  }
+}
+
 onMounted(() => {
   fetchPlans()
   fetchRequirements()
-    fetchProjects()  // 新增
+  fetchProjects()
 })
 
-// 获取用例列表（根据所选计划）
 const fetchTestCases = async (params) => {
   if (!selectedPlanId.value) {
     return { data: { records: [], total: 0 } }
   }
-  const res = await getTestCaseList({ planId: selectedPlanId.value, ...params })
-  // 转换优先级为文字
+  const queryParams = { planId: selectedPlanId.value, ...params }
+  if (filterType.value) {
+    queryParams.type = filterType.value
+  }
+  const res = await getTestCaseList(queryParams)
   res.data.records.forEach(item => {
-    item.priorityText = {1:'最高',2:'高',3:'中',4:'低'}[item.priority] || ''
+    item.priorityText = { 1: '最高', 2: '高', 3: '中', 4: '低' }[item.priority] || ''
   })
   return res
 }
 
-// 计划切换
 const handlePlanChange = (planId) => {
   if (planId) {
     const plan = planOptions.value.find(p => p.id === planId)
@@ -441,14 +461,14 @@ const handlePlanChange = (planId) => {
   tableRef.value?.triggerSearch()
 }
 
-// 查询
 const handleSearch = () => {
   tableRef.value?.triggerSearch()
 }
+
 const resetSearch = () => {
   searchForm.value = {
     title: '',
-    type: '',
+    type: filterType.value || '',
     status: '',
     priority: null
   }
@@ -459,13 +479,11 @@ const handleSelectionChange = (selection) => {
   selectedRows.value = selection
 }
 
-// 结果标签样式
 const resultType = (result) => {
   const map = { '通过': 'success', '失败': 'danger', '阻塞': 'warning', '跳过': 'info' }
   return map[result] || ''
 }
 
-// 新增/编辑对话框
 const dialogVisible = ref(false)
 const dialogTitle = ref('新增用例')
 const formRef = ref()
@@ -481,7 +499,8 @@ const form = ref({
   priority: 2,
   status: '有效',
   requirementId: null,
-  planId: null
+  planId: null,
+  moduleId: null
 })
 
 const rules = {
@@ -509,6 +528,14 @@ const rules = {
   ]
 }
 
+const filteredRequirements = computed(() => {
+  if (!selectedPlanId.value) return []
+  const selectedPlan = planOptions.value.find(p => p.id === selectedPlanId.value)
+  if (!selectedPlan) return []
+  const projectId = selectedPlan.projectId
+  return allRequirements.value.filter(r => r.projectId === projectId)
+})
+
 const handleAdd = () => {
   dialogTitle.value = '新增用例'
   form.value = {
@@ -517,13 +544,15 @@ const handleAdd = () => {
     precondition: '',
     steps: '',
     expectedResult: '',
-    type: '功能测试',
+    type: filterType.value || '功能测试',
     priority: 2,
     status: '有效',
     requirementId: null,
     planId: selectedPlanId.value,
-    moduleId: null 
+    moduleId: null
   }
+  // 如果当前处于分类页面，则禁用类型选择
+  typeDisabled.value = !!filterType.value
   dialogVisible.value = true
   nextTick(() => {
     formRef.value?.clearValidate()
@@ -543,8 +572,8 @@ const handleEdit = (row) => {
     status: row.status,
     requirementId: row.requirementId,
     moduleId: row.moduleId
-    // 编辑时不需要 planId
   }
+  typeDisabled.value = false  // 编辑时允许修改类型
   dialogVisible.value = true
   nextTick(() => {
     formRef.value?.clearValidate()
@@ -580,7 +609,6 @@ const handleSave = async () => {
   }
 }
 
-// 删除
 const handleDelete = (row) => {
   ElMessageBox.confirm(`确认删除用例 ${row.title} 吗？`, '提示', {
     confirmButtonText: '确定',
@@ -616,11 +644,8 @@ const handleBatchDelete = () => {
   }).catch(() => {})
 }
 
-// 复制功能
 const copyDialogVisible = ref(false)
-const copyForm = ref({
-  targetPlanId: null
-})
+const copyForm = ref({ targetPlanId: null })
 const sourceCase = ref(null)
 
 const handleCopy = () => {
@@ -636,23 +661,50 @@ const handleCopyFrom = (row) => {
   copyDialogVisible.value = true
 }
 
-// 加载项目列表（用于下拉框）
-const fetchProjects = async () => {
+const confirmCopy = async () => {
+  if (!copyForm.value.targetPlanId) {
+    ElMessage.warning('请选择目标计划')
+    return
+  }
   try {
-    const res = await getProjectList({ page: 1, size: 1000 })
-    projectOptions.value = res.data.records
+    const newCase = {
+      title: sourceCase.value.title + ' (复制)',
+      precondition: sourceCase.value.precondition,
+      steps: sourceCase.value.steps,
+      expectedResult: sourceCase.value.expectedResult,
+      type: sourceCase.value.type,
+      priority: sourceCase.value.priority,
+      status: sourceCase.value.status,
+      requirementId: sourceCase.value.requirementId,
+      planId: copyForm.value.targetPlanId
+    }
+    await createTestCase(newCase)
+    ElMessage.success('复制成功')
+    copyDialogVisible.value = false
+    if (selectedPlanId.value === copyForm.value.targetPlanId) {
+      tableRef.value?.refresh()
+    }
   } catch (error) {
-    console.error('获取项目列表失败', error)
+    console.error('复制失败', error)
   }
 }
 
-// 过滤当前项目下的计划
+// AI生成用例相关
+const aiDialogVisible = ref(false)
+const step = ref(0)
+const aiProjectId = ref(null)
+const aiContent = ref('')
+const aiFile = ref(null)
+const generating = ref(false)
+const aiCases = ref([])
+const targetPlanId = ref(null)
+const savingAI = ref(false)
+
 const filteredPlanOptions = computed(() => {
   if (!aiProjectId.value) return planOptions.value
   return planOptions.value.filter(p => p.projectId === aiProjectId.value)
 })
 
-// 打开AI对话框
 const openAIDialog = () => {
   step.value = 0
   aiProjectId.value = selectedPlanId.value ? planOptions.value.find(p => p.id === selectedPlanId.value)?.projectId : null
@@ -684,7 +736,6 @@ const generateCases = async () => {
     if (aiContent.value) formData.append('content', aiContent.value)
     if (aiProjectId.value) formData.append('projectId', aiProjectId.value)
     const res = await aiGenerateTestCases(formData)
-    // 为每个用例添加默认选中标记
     aiCases.value = res.data.map(c => ({ ...c, selected: true }))
     step.value = 1
   } catch (error) {
@@ -710,7 +761,6 @@ const saveAICases = async () => {
     ElMessage.warning('请选择目标测试计划')
     return
   }
-  // 获取表格中勾选的行（通过ref获取表格组件略复杂，简化为所有非手动删除的行）
   if (aiCases.value.length === 0) {
     ElMessage.warning('没有可保存的用例')
     return
@@ -730,6 +780,9 @@ const saveAICases = async () => {
   }
 }
 
+const createPlanDialogVisible = ref(false)
+const newPlanForm = ref({ planName: '', description: '', projectId: null })
+
 const openCreatePlanDialog = () => {
   newPlanForm.value = { planName: '', description: '', projectId: aiProjectId.value }
   createPlanDialogVisible.value = true
@@ -744,38 +797,9 @@ const confirmCreatePlan = async () => {
     await createTestPlan(newPlanForm.value)
     ElMessage.success('计划创建成功')
     createPlanDialogVisible.value = false
-    await fetchPlans() // 刷新计划列表
+    await fetchPlans()
   } catch (error) {
     console.error('创建计划失败', error)
-  }
-}
-
-const confirmCopy = async () => {
-  if (!copyForm.value.targetPlanId) {
-    ElMessage.warning('请选择目标计划')
-    return
-  }
-  try {
-    // 复制用例：创建新用例，内容相同，但关联到新计划
-    const newCase = {
-      title: sourceCase.value.title + ' (复制)',
-      precondition: sourceCase.value.precondition,
-      steps: sourceCase.value.steps,
-      expectedResult: sourceCase.value.expectedResult,
-      type: sourceCase.value.type,
-      priority: sourceCase.value.priority,
-      status: sourceCase.value.status,
-      requirementId: sourceCase.value.requirementId,
-      planId: copyForm.value.targetPlanId
-    }
-    await createTestCase(newCase)
-    ElMessage.success('复制成功')
-    copyDialogVisible.value = false
-    if (selectedPlanId.value === copyForm.value.targetPlanId) {
-      tableRef.value?.refresh()
-    }
-  } catch (error) {
-    console.error('复制失败', error)
   }
 }
 </script>
@@ -798,5 +822,13 @@ const confirmCopy = async () => {
   flex-shrink: 0;
   display: flex;
   gap: 8px;
+}
+.filter-info {
+  margin-bottom: 16px;
+  padding: 8px 16px;
+}
+:deep(.el-form-item) {
+  margin-right: 0;
+  margin-bottom: 0;
 }
 </style>

@@ -12,4 +12,14 @@ public class ProjectReportStats {
     private ExecutionStats executionStats;  // 测试执行统计
     private DefectStats defectStats;        // 缺陷统计
     private AutoTestStats autoTestStats;
+
+    private ApiTestStats apiTestStats;   // 接口测试统计
+
+    @Data
+    public static class ApiTestStats {
+        private Integer totalCases;
+        private Integer executedCases;
+        private Integer passedCases;
+        private Double passRate;
+    }
 }

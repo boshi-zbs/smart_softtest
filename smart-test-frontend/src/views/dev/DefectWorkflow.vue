@@ -40,7 +40,7 @@
     >
       <template #columns>
         <el-table-column type="index" label="序号" width="60" />
-        <el-table-column prop="id" label="ID" width="80" />
+        <!-- <el-table-column prop="id" label="ID" width="80" /> -->
         <el-table-column prop="title" label="标题" />
         <el-table-column prop="projectName" label="项目" />
         <el-table-column prop="severity" label="严重程度" width="100" />
@@ -105,7 +105,7 @@
             <span style="font-weight: bold;">操作：</span>
             <el-button-group>
               <el-button
-                v-if="['新建', '已指派'].includes(currentDefect.status)"
+                v-if="['新建', '已指派','重新打开'].includes(currentDefect.status)"
                 type="warning"
                 @click="openStatusDialog('修复中')"
               >开始修复</el-button>
@@ -115,7 +115,7 @@
                 @click="openStatusDialog('已修复')"
               >修复完成</el-button>
               <el-button
-                v-if="['新建', '已指派', '修复中'].includes(currentDefect.status)"
+                v-if="['新建', '已指派', '修复中','重新打开'].includes(currentDefect.status)"
                 type="info"
                 @click="openStatusDialog('驳回')"
               >驳回</el-button>
@@ -211,12 +211,14 @@ import { getUserList } from '@/api/user'
 import { useStore } from 'vuex'
 import { useRoute } from 'vue-router'
 import { Document } from '@element-plus/icons-vue'
-
+import { getPublicRoles } from '@/api/role'
+const devRoleId = ref(null)
 const store = useStore()
 
 const route = useRoute()
 const defectIdFromUrl = route.params.id 
 onMounted(async () => {
+  await fetchDevRoleId()
   await fetchUsers()
   
   // 如果URL中包含缺陷ID，则自动加载详情并打开对话框
@@ -242,18 +244,30 @@ const searchForm = ref({
   status: '',
   severity: ''
 })
-
+const fetchDevRoleId = async () => {
+  try {
+    const res = await getPublicRoles()
+    const devRole = res.data.find(r => r.roleCode === 'ROLE_DEV')
+    if (devRole) devRoleId.value = devRole.id
+  } catch (error) {
+    console.error('获取角色列表失败', error)
+  }
+}
 // 用户选项（用于重新指派）
 const userOptions = ref([])
 const fetchUsers = async () => {
   try {
-    const res = await getUserList({ page: 1, size: 1000 })
+    const params = { page: 1, size: 1000 }
+    if (devRoleId.value) {
+      params.roleId = devRoleId.value
+    }
+    const res = await getUserList(params)
     userOptions.value = res.data.records
   } catch (error) {
     console.error('获取用户列表失败', error)
   }
 }
-onMounted(fetchUsers)
+
 
 // 获取缺陷列表（默认只显示指派给当前用户的）
 const fetchDefects = async (params) => {

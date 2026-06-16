@@ -23,6 +23,7 @@
           <el-select v-model="searchForm.status" placeholder="全部" clearable style="width: 120px;">
             <el-option label="待处理" value="待处理" />
             <el-option label="处理中" value="处理中" />
+            <el-option label="待测试" value="待测试" />
             <el-option label="已完成" value="已完成" />
             <el-option label="已关闭" value="已关闭" />
           </el-select>
@@ -125,6 +126,7 @@
           <el-select v-model="form.status" placeholder="请选择状态" style="width:100%">
             <el-option label="待处理" value="待处理" />
             <el-option label="处理中" value="处理中" />
+            <el-option label="待测试" value="待测试" />
             <el-option label="已完成" value="已完成" />
             <el-option label="已关闭" value="已关闭" />
           </el-select>
@@ -157,7 +159,10 @@ import CommonTable from '@/components/CommonTable.vue'
 import { getRequirementList, createRequirement, updateRequirement, deleteRequirement, deleteRequirementsBatch } from '@/api/requirement'
 import { getProjectList } from '@/api/project'
 import { getUserList } from '@/api/user'
+import { getPublicRoles } from '@/api/role'
 
+// 添加响应式变量
+const devRoleId = ref(null)
 const tableRef = ref()
 const selectedRows = ref([])
 
@@ -184,11 +189,23 @@ const fetchProjects = async () => {
     console.error('获取项目列表失败', error)
   }
 }
-
+const fetchDevRoleId = async () => {
+  try {
+    const res = await getPublicRoles()
+    const devRole = res.data.find(r => r.roleCode === 'ROLE_DEV')
+    if (devRole) devRoleId.value = devRole.id
+  } catch (error) {
+    console.error('获取角色列表失败', error)
+  }
+}
 // 加载用户列表
 const fetchUsers = async () => {
   try {
-    const res = await getUserList({ page: 1, size: 1000 })
+    const params = { page: 1, size: 1000 }
+    if (devRoleId.value) {
+      params.roleId = devRoleId.value
+    }
+    const res = await getUserList(params)
     userOptions.value = res.data.records
   } catch (error) {
     console.error('获取用户列表失败', error)
@@ -197,7 +214,7 @@ const fetchUsers = async () => {
 
 onMounted(() => {
   fetchProjects()
-  fetchUsers()
+  fetchDevRoleId().then(() => fetchUsers())
 })
 
 // 获取需求列表（分页）
@@ -238,7 +255,13 @@ const priorityType = (val) => {
   return map[val]
 }
 const statusType = (status) => {
-  const map = { '待处理': 'info', '处理中': 'warning', '已完成': 'success', '已关闭': '' }
+  const map = {
+    '待处理': 'info',
+    '处理中': 'warning',
+    '待测试': 'primary',
+    '已完成': 'success',
+    '已关闭': ''
+  }
   return map[status]
 }
 
@@ -253,7 +276,7 @@ const form = ref({
   projectId: null,
   title: '',
   description: '',
-  priority: 2,    // 默认高
+  priority: 2,
   status: '待处理',
   assigneeId: null
 })

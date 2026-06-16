@@ -3,7 +3,6 @@
 <mapper namespace="com.example.smarttestplatform.module.project.mapper.ProjectMemberMapper">
 
     <resultMap id="BaseResultMap" type="com.example.smarttestplatform.module.project.entity.ProjectMember">
-        <id property="id" column="id"/>
         <result property="projectId" column="project_id"/>
         <result property="userId" column="user_id"/>
         <result property="roleInProject" column="role_in_project"/>
@@ -20,7 +19,7 @@
                 AND role_in_project = #{conditions.roleInProject}
             </if>
         </where>
-        ORDER BY id DESC
+        ORDER BY join_time DESC
         LIMIT #{offset}, #{size}
     </select>
 

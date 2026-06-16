@@ -88,7 +88,7 @@ public class TestCaseServiceImpl implements TestCaseService {
         TestExecution latest = testExecutionMapper.findLatestByCaseId(tc.getId()); // 需要在 TestExecutionMapper 中添加
         if (latest != null) {
             tc.setLastResult(latest.getResult());
-            tc.setActualResult(latest.getActualResult());
+//            tc.setActualResult(latest.getActualResult());
         }
         // 填充关联的计划名称列表
         List<Integer> planIds = planCaseMapper.findPlanIdsByCaseId(tc.getId());

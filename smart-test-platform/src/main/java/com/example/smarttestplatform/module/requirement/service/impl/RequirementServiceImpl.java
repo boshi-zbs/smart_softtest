@@ -98,6 +98,8 @@ public class RequirementServiceImpl implements RequirementService {
 
         projectUtils.checkNotArchived(old.getProjectId());
 
+
+
         requirementMapper.update(requirement);
 
         // 负责人变更时发送待办消息

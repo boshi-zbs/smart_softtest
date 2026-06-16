@@ -78,4 +78,11 @@ public class MessageServiceImpl implements MessageService {
             throw new RuntimeException("消息不存在或已完成");
         }
     }
+
+    @Override
+    @Transactional
+    public void completeRelatedTodos(Integer relatedId, String relatedType) {
+        // 更新所有关联且状态为 pending 的待办消息为 completed
+        messageMapper.completeByRelated(relatedId, relatedType);
+    }
 }

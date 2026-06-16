@@ -1,23 +1,23 @@
 <template>
   <div>
-    <!-- 查询表单插槽（保留，但不再自动监听） -->
     <div v-if="$slots.searchForm" class="search-form" style="margin-bottom: 16px;">
       <slot name="searchForm" :searchParams="searchParams" />
     </div>
 
-     <el-table
+    <el-table
       v-loading="loading"
       :data="tableData"
       border
       style="width: 100%"
       row-key="id"
+      stripe
       @selection-change="handleTableSelectionChange"
+      :header-cell-style="{ background: '#f5f6f8', fontWeight: '500' }"
     >
       <slot name="columns" />
-
     </el-table>
-     <!-- 分页器（保持不变） -->
-    <div style="margin-top: 16px; display: flex; justify-content: flex-end;">
+
+    <div style="margin-top: 20px; display: flex; justify-content: flex-end;">
       <el-pagination
         v-model:current-page="currentPage"
         v-model:page-size="pageSize"
@@ -32,8 +32,7 @@
 </template>
 
 <script setup>
-import { ref, defineProps, defineExpose,defineEmits, onMounted } from 'vue'
-
+import { ref, defineProps, defineExpose, defineEmits, onMounted, watch } from 'vue'
 
 const props = defineProps({
   fetchData: { type: Function, required: true },
@@ -41,14 +40,13 @@ const props = defineProps({
   immediate: { type: Boolean, default: true }
 })
 
-const emit = defineEmits(['selection-change'])  // 新增：定义事件
+const emit = defineEmits(['selection-change'])
 
 const tableData = ref([])
 const total = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(10)
 const loading = ref(false)
-
 
 const loadData = async () => {
   loading.value = true
@@ -78,7 +76,6 @@ const handleCurrentChange = (page) => {
   loadData()
 }
 
-// 触发查询（重置到第一页并加载）
 const triggerSearch = () => {
   currentPage.value = 1
   loadData()
@@ -86,13 +83,15 @@ const triggerSearch = () => {
 
 defineExpose({ refresh: loadData, triggerSearch })
 
-
-// 将表格选择变化事件传递给父组件
 const handleTableSelectionChange = (selection) => {
   emit('selection-change', selection)
 }
 
-// 初始化加载
+// 监听 searchParams 变化，自动刷新表格
+watch(() => props.searchParams, () => {
+  triggerSearch()
+}, { deep: true })
+
 if (props.immediate) {
   onMounted(() => {
     loadData()

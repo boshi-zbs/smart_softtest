@@ -73,7 +73,31 @@ const routes = [
             component: () => import('@/views/tester/AutoTestManagement.vue'),
             meta: { requiredRole: 'ROLE_TESTER' }
             },
-
+            {
+            path: 'tester/cases/functional',
+            name: 'TestCaseFunctional',
+            component: () => import('@/views/tester/TestCaseManagement.vue'),
+            meta: { requiredRole: 'ROLE_TESTER', filterType: '功能测试' }
+            },
+            {
+            path: 'tester/cases/performance',
+            name: 'TestCasePerformance',
+            component: () => import('@/views/tester/TestCaseManagement.vue'),
+            meta: { requiredRole: 'ROLE_TESTER', filterType: '性能测试' }
+            },
+            {
+            path: 'tester/cases/security',
+            name: 'TestCaseSecurity',
+            component: () => import('@/views/tester/TestCaseManagement.vue'),
+            meta: { requiredRole: 'ROLE_TESTER', filterType: '安全测试' }
+            },
+            {
+            path: 'tester/cases/compatibility',
+            name: 'TestCaseCompatibility',
+            component: () => import('@/views/tester/TestCaseManagement.vue'),
+            meta: { requiredRole: 'ROLE_TESTER', filterType: '兼容性测试' }
+            },
+            { path: 'tester/api-tester', name: 'ApiTester', component: () => import('@/views/tester/ApiTester.vue'), meta: { requiredRole: 'ROLE_TESTER' } },
             // 开发人员模块
             { path: 'dev/todo', name: 'MyTodo', component: MyTodo, meta: { requiredRole: 'ROLE_DEV' } },
             {

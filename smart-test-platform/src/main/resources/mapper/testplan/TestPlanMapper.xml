@@ -13,36 +13,47 @@
         <result property="creatorId" column="creator_id"/>
         <result property="createTime" column="create_time"/>
         <result property="updateTime" column="update_time"/>
+        <result property="assigneeId" column="assignee_id"/>
     </resultMap>
 
     <select id="pageQuery" resultMap="BaseResultMap">
-        SELECT * FROM test_plan
+        SELECT tp.*, u.real_name as assignee_name
+        FROM test_plan tp
+        LEFT JOIN user u ON tp.assignee_id = u.id
         <where>
             <if test="conditions.projectId != null">
-                AND project_id = #{conditions.projectId}
+                AND tp.project_id = #{conditions.projectId}
             </if>
             <if test="conditions.planName != null and conditions.planName != ''">
-                AND plan_name LIKE CONCAT('%', #{conditions.planName}, '%')
+                AND tp.plan_name LIKE CONCAT('%', #{conditions.planName}, '%')
             </if>
             <if test="conditions.status != null and conditions.status != ''">
-                AND status = #{conditions.status}
+                AND tp.status = #{conditions.status}
+            </if>
+            <!-- 权限过滤：非管理员只显示自己负责的计划 -->
+            <if test="conditions.currentUserId != null and conditions.role != 'ROLE_ADMIN'">
+                AND tp.assignee_id = #{conditions.currentUserId}
             </if>
         </where>
-        ORDER BY id DESC
+        ORDER BY tp.id DESC
         LIMIT #{offset}, #{size}
     </select>
 
     <select id="count" resultType="long">
-        SELECT COUNT(*) FROM test_plan
+        SELECT COUNT(*) FROM test_plan tp
         <where>
             <if test="conditions.projectId != null">
-                AND project_id = #{conditions.projectId}
+                AND tp.project_id = #{conditions.projectId}
             </if>
             <if test="conditions.planName != null and conditions.planName != ''">
-                AND plan_name LIKE CONCAT('%', #{conditions.planName}, '%')
+                AND tp.plan_name LIKE CONCAT('%', #{conditions.planName}, '%')
             </if>
             <if test="conditions.status != null and conditions.status != ''">
-                AND status = #{conditions.status}
+                AND tp.status = #{conditions.status}
+            </if>
+            <!-- 权限过滤：非管理员只显示自己负责的计划 -->
+            <if test="conditions.currentUserId != null and conditions.role != 'ROLE_ADMIN'">
+                AND tp.assignee_id = #{conditions.currentUserId}
             </if>
         </where>
     </select>

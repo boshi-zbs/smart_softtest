@@ -12,4 +12,5 @@ public interface MessageService {
     int countUnread(Integer receiverId);
 
     void complete(Integer messageId);
+    void completeRelatedTodos(Integer relatedId, String relatedType);
 }

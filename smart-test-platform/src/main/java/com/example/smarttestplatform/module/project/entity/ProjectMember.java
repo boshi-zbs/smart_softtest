@@ -5,7 +5,6 @@ import java.util.Date;
 
 @Data
 public class ProjectMember {
-    private Integer id;
     private Integer projectId;
     private Integer userId;
     private String roleInProject;   // 项目内角色，如 PM、DEV、TEST

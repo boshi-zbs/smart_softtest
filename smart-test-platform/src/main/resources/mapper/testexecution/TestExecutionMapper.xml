@@ -11,7 +11,6 @@
         <result property="result" column="result"/>
         <result property="actualResult" column="actual_result"/>
         <result property="durationMs" column="duration_ms"/>
-        <result property="isAutomated" column="is_automated"/>
         <result property="createTime" column="create_time"/>
     </resultMap>
 

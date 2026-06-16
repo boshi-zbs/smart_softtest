@@ -5,7 +5,7 @@ import store from './store'
 import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
 import * as ElementPlusIconsVue from '@element-plus/icons-vue' // 可选
-
+import '@/styles/global.scss'   // 新增
 import ECharts from 'vue-echarts'
 import 'echarts'
 

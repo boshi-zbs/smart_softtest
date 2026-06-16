@@ -41,7 +41,7 @@
       <template #columns>
         <el-table-column type="selection" width="55" />
         <el-table-column type="index" label="序号" width="60" />
-        <el-table-column prop="id" label="ID" width="80" />
+        <!-- <el-table-column prop="id" label="ID" width="80" /> -->
         <el-table-column prop="caseName" label="用例名称" />
         <el-table-column prop="projectName" label="项目" />
         <el-table-column prop="url" label="URL" show-overflow-tooltip />

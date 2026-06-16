@@ -30,12 +30,17 @@
           >开始处理</el-button>
           <el-button
             v-if="requirement.status === '处理中'"
-            type="success"
-            @click="changeStatus('已完成')"
-          >完成需求</el-button>
+            type="primary"
+            @click="changeStatus('待测试')"
+          >提交测试</el-button>
+          <el-button
+            v-if="requirement.status === '待测试'"
+            type="info"
+            disabled
+          >已提交测试（等待验证）</el-button>
           <el-button
             v-if="requirement.status === '已完成'"
-            type="info"
+            type="success"
             disabled
           >已完成</el-button>
         </el-button-group>
@@ -89,7 +94,13 @@ const priorityType = (val) => {
   return map[val] || undefined
 }
 const statusType = (status) => {
-  const map = { '待处理': 'info', '处理中': 'warning', '已完成': 'success', '已关闭': '' }
+  const map = {
+    '待处理': 'info',
+    '处理中': 'warning',
+    '待测试': 'primary',
+    '已完成': 'success',
+    '已关闭': ''
+  }
   return map[status] || undefined
 }
 

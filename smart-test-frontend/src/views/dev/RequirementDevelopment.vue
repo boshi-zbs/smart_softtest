@@ -9,6 +9,7 @@
         <el-select v-model="searchForm.status" placeholder="全部" clearable style="width: 150px;">
           <el-option label="待处理" value="待处理" />
           <el-option label="处理中" value="处理中" />
+          <el-option label="待测试" value="待测试" />
           <el-option label="已完成" value="已完成" />
         </el-select>
       </el-form-item>
@@ -25,7 +26,6 @@
     >
       <template #columns>
         <el-table-column type="index" label="序号" width="60" />
-        <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="title" label="标题" />
         <el-table-column prop="projectName" label="项目" />
         <el-table-column prop="priority" label="优先级">
@@ -65,12 +65,7 @@ const searchForm = ref({
 })
 
 const fetchRequirements = async (params) => {
-  // 添加 assigneeId 过滤为当前登录用户？但后端接口未支持，可以先返回所有，但实际应只显示当前用户指派的
-  // 或者修改后端接口支持 assigneeId 过滤，这里暂不做，从“我的待办”进入会更准确，但这里做通用列表
-  // 为了演示，我们调用原有接口，但可以在前端过滤？不，应该在接口层面处理。
-  // 由于时间，我们假设后端接口支持 assigneeId 参数，我们在 params 中添加当前用户ID（需要从 store 获取）
-  // 简单起见，这里从 store 获取当前用户ID
-  const store = useStore() // 需要导入 useStore
+  const store = useStore()
   const user = store.state.user
   if (user && user.id) {
     params.assigneeId = user.id
@@ -88,7 +83,13 @@ const priorityType = (val) => {
   return map[val] || undefined
 }
 const statusType = (status) => {
-  const map = { '待处理': 'info', '处理中': 'warning', '已完成': 'success', '已关闭': '' }
+  const map = {
+    '待处理': 'info',
+    '处理中': 'warning',
+    '待测试': 'primary',
+    '已完成': 'success',
+    '已关闭': ''
+  }
   return map[status] || undefined
 }
 

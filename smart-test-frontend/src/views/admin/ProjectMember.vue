@@ -7,23 +7,12 @@
 
       <!-- 查询条件：项目角色下拉框 -->
       <el-form :inline="true" :model="searchForm" class="search-form">
-        <el-form-item label="项目角色">
-          <el-select
-            v-model="searchForm.roleInProject"
-            placeholder="项目角色"
-            clearable
-            allow-create
-            filterable
-            style="width: 150px;"
-          >
-            <el-option
-              v-for="item in roleOptions"
-              :key="item"
-              :label="item"
-              :value="item"
-            />
-          </el-select>
-        </el-form-item>
+       <el-form-item label="项目角色">
+        <el-select v-model="searchForm.roleInProject" placeholder="请选择角色" clearable style="width:150px">
+          <el-option label="测试人员" value="测试人员" />
+          <el-option label="开发人员" value="开发人员" />
+        </el-select>
+      </el-form-item>
       </el-form>
 
       <!-- 查询/重置按钮组 -->
@@ -90,8 +79,11 @@
           </el-select>
         </el-form-item>
         <el-form-item label="项目角色" prop="roleInProject">
-          <el-input v-model="form.roleInProject" placeholder="例如 测试人员、开发人员" />
-        </el-form-item>
+        <el-select v-model="form.roleInProject" placeholder="请选择角色" style="width:100%">
+          <el-option label="测试人员" value="测试人员" />
+          <el-option label="开发人员" value="开发人员" />
+        </el-select>
+      </el-form-item>
       </el-form>
       <template #footer>
         <span class="dialog-footer">
@@ -116,7 +108,7 @@ const route = useRoute()
 const router = useRouter()
 const tableRef = ref()
 const selectedRows = ref([])
-
+const isEdit = ref(false)
 // 如果路由中带有 projectId，则固定该项目
 const projectIdFixed = route.query.projectId ? parseInt(route.query.projectId) : null
 const projectName = ref('')
@@ -127,8 +119,7 @@ const searchForm = ref({
   roleInProject: ''
 })
 
-// 预设项目角色选项（支持手动输入）
-const roleOptions = ref(['测试人员', '开发人员'])
+
 
 // 对话框相关
 const dialogVisible = ref(false)
@@ -137,7 +128,6 @@ const formRef = ref()
 const saving = ref(false)
 
 const form = ref({
-  id: null,
   projectId: projectIdFixed,
   userId: null,
   roleInProject: ''
@@ -156,7 +146,7 @@ const rules = {
     { required: true, message: '请选择用户', trigger: 'change' }
   ],
   roleInProject: [
-    { required: true, message: '请输入项目角色', trigger: 'blur' }
+    { required: true, message: '请选择项目角色', trigger: 'change' }
   ]
 }
 
@@ -239,9 +229,9 @@ const handleUserChange = (userId) => {
 }
 
 const handleAdd = () => {
+  isEdit.value = false
   dialogTitle.value = '添加成员'
   form.value = {
-    id: null,
     projectId: projectIdFixed,
     userId: null,
     roleInProject: ''
@@ -253,9 +243,9 @@ const handleAdd = () => {
 }
 
 const handleEdit = (row) => {
+  isEdit.value = true
   dialogTitle.value = '编辑成员角色'
   form.value = {
-    id: row.id,
     projectId: row.projectId,
     userId: row.userId,
     roleInProject: row.roleInProject
@@ -280,10 +270,16 @@ const handleSave = async () => {
 
   saving.value = true
   try {
-    if (form.value.id) {
-      await updateMember(form.value.id, { roleInProject: form.value.roleInProject })
+    if (isEdit.value) {
+      // 编辑
+      await updateMember({
+        projectId: form.value.projectId,
+        userId: form.value.userId,
+        roleInProject: form.value.roleInProject
+      })
       ElMessage.success('修改成功')
     } else {
+      // 新增
       await addMember(form.value)
       ElMessage.success('添加成功')
     }
@@ -303,7 +299,7 @@ const handleDelete = (row) => {
     type: 'warning'
   }).then(async () => {
     try {
-      await deleteMember(row.id)
+      await deleteMember(row.projectId, row.userId)
       ElMessage.success('移除成功')
       tableRef.value?.refresh()
     } catch (error) {
@@ -314,14 +310,18 @@ const handleDelete = (row) => {
 
 const handleBatchDelete = () => {
   if (selectedRows.value.length === 0) return
-  const ids = selectedRows.value.map(row => row.id)
-  ElMessageBox.confirm(`确认移除选中的 ${ids.length} 个成员吗？`, '提示', {
+  // 构建成员对象数组，每个成员包含 projectId 和 userId
+  const members = selectedRows.value.map(row => ({
+    projectId: row.projectId,
+    userId: row.userId
+  }))
+  ElMessageBox.confirm(`确认移除选中的 ${members.length} 个成员吗？`, '提示', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
     type: 'warning'
   }).then(async () => {
     try {
-      await deleteMembersBatch(ids)
+      await deleteMembersBatch(members)
       ElMessage.success('批量移除成功')
       tableRef.value?.refresh()
       selectedRows.value = []
@@ -330,7 +330,6 @@ const handleBatchDelete = () => {
     }
   }).catch(() => {})
 }
-
 // 返回项目管理列表
 const goBack = () => {
   router.push('/admin/projects')

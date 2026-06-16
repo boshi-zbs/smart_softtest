@@ -59,22 +59,26 @@ public class TestPlanServiceImpl implements TestPlanService {
     @Override
     public PageResult<TestPlan> pageQuery(PageRequest pageRequest) {
         Map<String, Object> conditions = pageRequest.getConditions();
+        // 获取当前登录用户的角色和ID
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String currentRole = auth.getAuthorities().iterator().next().getAuthority();
+        Integer currentUserId = getCurrentUserId(); // 需要实现获取当前用户ID的方法
+        conditions.put("role", currentRole);
+        conditions.put("currentUserId", currentUserId);
+
         int offset = (pageRequest.getPage() - 1) * pageRequest.getSize();
         List<TestPlan> records = testPlanMapper.pageQuery(conditions, offset, pageRequest.getSize());
-        // 填充项目名称和创建人姓名
+        // 填充项目名、创建人等（原有逻辑）
         for (TestPlan plan : records) {
             if (plan.getProjectId() != null) {
                 Project project = projectMapper.findById(plan.getProjectId());
-                if (project != null) {
-                    plan.setProjectName(project.getProjectName());
-                }
+                if (project != null) plan.setProjectName(project.getProjectName());
             }
             if (plan.getCreatorId() != null) {
                 User user = userMapper.findById(plan.getCreatorId());
-                if (user != null) {
-                    plan.setCreatorName(user.getRealName() != null ? user.getRealName() : user.getUsername());
-                }
+                if (user != null) plan.setCreatorName(user.getRealName() != null ? user.getRealName() : user.getUsername());
             }
+            // 注意：assigneeName 已经在 SQL 中通过左连接填充，这里无需再查
         }
         Long total = testPlanMapper.count(conditions);
         return new PageResult<>(records, total, pageRequest.getPage(), pageRequest.getSize());
@@ -85,6 +89,8 @@ public class TestPlanServiceImpl implements TestPlanService {
     public void createTestPlan(TestPlan testPlan, Integer creatorId) {
         projectUtils.checkNotArchived(testPlan.getProjectId());
         testPlan.setCreatorId(creatorId);
+        // 如果前端传递了 assigneeId，则设置
+        // 如果没有，可为空（只有管理员能看）
         testPlanMapper.insert(testPlan);
     }
 

@@ -27,27 +27,20 @@ export function addMember(data) {
 }
 
 // 更新成员
-export function updateMember(id, data) {
-  return request({
-    url: `/project-members/${id}`,
-    method: 'put',
-    data
-  })
+export function updateMember(data) {  // data 应包含 projectId, userId, roleInProject
+  return request({ url: '/project-members', method: 'put', data })
 }
 
 // 删除成员
-export function deleteMember(id) {
-  return request({
-    url: `/project-members/${id}`,
-    method: 'delete'
-  })
+export function deleteMember(projectId, userId) {
+  return request({ url: `/project-members/${projectId}/${userId}`, method: 'delete' })
 }
 
 // 批量删除成员
-export function deleteMembersBatch(ids) {
+export function deleteMembersBatch(members) {
   return request({
     url: '/project-members/batch',
     method: 'delete',
-    data: ids
+    data: members
   })
 }
